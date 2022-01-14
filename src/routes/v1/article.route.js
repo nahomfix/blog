@@ -19,7 +19,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 const router = require('express').Router();
 
-router.get('/', getArticles);
+router.get('/', checkToken, getArticles);
 router.post('/', checkToken, upload.single('image'), createArticle);
 router.get('/:slug', getArticleBySlug);
 
