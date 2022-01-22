@@ -36,6 +36,17 @@ const validations = {
       }),
     body('password').not().isEmpty().trim().escape(),
   ],
+
+  changePassword: [
+    body('oldPassword').not().isEmpty().trim().escape(),
+    body('newPassword')
+      .not()
+      .isEmpty()
+      .trim()
+      .escape()
+      .isLength({ min: 6 })
+      .withMessage('must be at least 6 characters long'),
+  ],
 };
 
 module.exports = validations;
