@@ -4,8 +4,11 @@ const morgan = require('morgan');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const csrf = require('csurf');
+const xssClean = require('xss-clean');
+const helmet = require('helmet');
 const app = express();
 const router = express.Router();
+
 const articleRoute = require('./routes/v1/article.route');
 const authRoute = require('./routes/v1/auth.route');
 const { errorHandler, notFound } = require('./middlewares/error.middleware');
@@ -13,16 +16,19 @@ const { errorHandler, notFound } = require('./middlewares/error.middleware');
 const csrfProtection = csrf({
   cookie: true,
 });
-app.use(cors());
-app.use(morgan('tiny'));
+
+app.use(xssClean());
+app.use(helmet());
+app.use(cors({ credentials: true }));
+app.use(morgan('dev'));
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(cookieParser());
 
 router.use('/auth', authRoute);
-router.use(csrfProtection);
 router.use('/articles', articleRoute);
 router.use('/uploads', express.static(path.resolve(__dirname, './uploads')));
+router.use(csrfProtection);
 
 // console.log(path.resolve(__dirname, './uploads'));
 

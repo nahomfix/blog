@@ -6,9 +6,9 @@ const checkToken = (req, res, next) => {
 
   jwt.verify(token, process.env.JWT_SECRET, (err, payload) => {
     if (err) {
-      res.status(StatusCodes.UNAUTHORIZED);
-      throw new Error(ReasonPhrases.UNAUTHORIZED);
-    } else if (payload.id) {
+      res.status(StatusCodes.FORBIDDEN);
+      throw new Error(ReasonPhrases.FORBIDDEN);
+    } else if (payload) {
       req.user = payload;
       next();
     }
