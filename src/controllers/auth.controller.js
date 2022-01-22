@@ -28,7 +28,7 @@ const register = asyncHandler(async (req, res) => {
 
     await user.save();
 
-    res.json({
+    res.status(StatusCodes.CREATED).json({
       success: true,
       data: user,
     });
@@ -58,24 +58,23 @@ const login = asyncHandler(async (req, res) => {
       { id: userInSystem._id, email: userInSystem.email },
       process.env.JWT_SECRET,
       {
-        expiresIn: '10s',
+        expiresIn: '1m',
       }
     );
     const refreshToken = jwt.sign(
       { id: userInSystem._id, email: userInSystem.email },
       process.env.REFRESH_JWT_SECRET,
       {
-        expiresIn: '1m',
+        expiresIn: '5m',
       }
     );
 
     userInSystem.refreshToken = refreshToken;
     await userInSystem.save();
 
-    res.cookie('token', token, { maxAge: 900000, httpOnly: true });
+    res.cookie('token', token, { maxAge: 24 * 60 * 60 * 1000, httpOnly: true });
     res.cookie('refreshToken', userInSystem.refreshToken, {
-      maxAge: 900000,
-      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000,
     });
     res.json({
       success: true,
@@ -89,11 +88,14 @@ const login = asyncHandler(async (req, res) => {
 });
 
 const logout = asyncHandler(async (req, res) => {
+  const { refreshToken } = req.cookies;
+
   try {
-    const { refreshToken } = req.cookies;
-    const user = await User.findOne({ refreshToken });
-    user.refreshToken = '';
-    await user.save();
+    if (refreshToken) {
+      const user = await User.findOne({ refreshToken });
+      user.refreshToken = '';
+      await user.save();
+    }
     res.clearCookie('token');
     res.clearCookie('refreshToken');
     res.json({
@@ -110,14 +112,14 @@ const generateToken = asyncHandler(async (req, res) => {
   const { refreshToken } = req.cookies;
 
   if (!refreshToken) {
-    res.status(StatusCodes.FORBIDDEN);
-    throw new Error('Access denied, token missing');
+    res.status(StatusCodes.UNAUTHORIZED);
+    throw new Error('Token missing');
   } else {
     const user = await User.findOne({ refreshToken });
 
     if (!user) {
       res.status(StatusCodes.UNAUTHORIZED);
-      throw new Error('Token expired');
+      throw new Error('Token not found');
     } else {
       jwt.verify(
         user.refreshToken,
@@ -131,11 +133,11 @@ const generateToken = asyncHandler(async (req, res) => {
               { id: payload.id, email: payload.email },
               process.env.JWT_SECRET,
               {
-                expiresIn: '10s',
+                expiresIn: '1m',
               }
             );
             res.cookie('token', accessToken, {
-              maxAge: 900000,
+              maxAge: 24 * 60 * 60 * 1000,
               httpOnly: true,
             });
 
@@ -147,9 +149,49 @@ const generateToken = asyncHandler(async (req, res) => {
   }
 });
 
+const changePassword = asyncHandler(async (req, res) => {
+  const errors = validationResult(req);
+
+  if (!errors.isEmpty()) {
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      success: false,
+      status: StatusCodes.BAD_REQUEST,
+      errors: errors.array(),
+    });
+  }
+
+  const { oldPassword, newPassword } = req.body;
+
+  try {
+    const user = await User.findOne({ _id: req.user.id });
+    if (!user) {
+      res.status(StatusCodes.BAD_REQUEST);
+      throw new Error('User not found');
+    }
+
+    if (!(await argon2.verify(user.password, oldPassword))) {
+      res.status(StatusCodes.BAD_REQUEST);
+      throw new Error('Old password does not match');
+    }
+
+    const hashedNewPassword = await argon2.hash(newPassword);
+    user.password = hashedNewPassword;
+    await user.save();
+
+    res.json({
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR);
+    throw error;
+  }
+});
+
 module.exports = {
   register,
   login,
   logout,
   generateToken,
+  changePassword,
 };
