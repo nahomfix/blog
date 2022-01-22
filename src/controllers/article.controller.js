@@ -37,7 +37,7 @@ const createArticle = async (req, res) => {
       slug: slugify(title, {
         lower: true,
         trim: true,
-        remove: /[*+~.()'"!:@]/g,
+        remove: /[*+~.()'"!:@/]/g,
       }),
       coverImage: filename,
     });
